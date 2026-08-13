@@ -1,0 +1,203 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+
+export default function SignUp() {
+  const router = useRouter();
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const handleSignUp = async () => {
+    if (!fullName.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert('Missing information', 'Please fill in all fields.');
+      return;
+    }
+
+    if (!isValidEmail(email.trim())) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Weak password', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Passwords do not match', 'Please re-enter your password.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Check if an account with this email already exists locally.
+      const existingUsersJson = await AsyncStorage.getItem('users');
+      const existingUsers = existingUsersJson ? JSON.parse(existingUsersJson) : [];
+
+      const alreadyExists = existingUsers.some(
+        (user) => user.email.toLowerCase() === email.trim().toLowerCase()
+      );
+
+      if (alreadyExists) {
+        Alert.alert('Account exists', 'An account with this email already exists.');
+        setLoading(false);
+        return;
+      }
+
+      const newUser = {
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        password, // In a production app, this would be hashed server-side, not stored as plain text.
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedUsers = [...existingUsers, newUser];
+      await AsyncStorage.setItem('users', JSON.stringify(updatedUsers));
+
+      // Log the new user in immediately after signup.
+      await AsyncStorage.setItem(
+        'userDetails',
+        JSON.stringify({ fullName: newUser.fullName, email: newUser.email })
+      );
+
+      setLoading(false);
+      router.replace('/home');
+    } catch (error) {
+      setLoading(false);
+      console.error('Sign up error:', error);
+      Alert.alert('Something went wrong', 'Please try again.');
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Text style={styles.heading}>Create account</Text>
+      <Text style={styles.subheading}>
+        Sign up to start planning your meals and saving recipes.
+      </Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Full name"
+        placeholderTextColor="#8A8A85"
+        value={fullName}
+        onChangeText={setFullName}
+        autoCapitalize="words"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#8A8A85"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#8A8A85"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm password"
+        placeholderTextColor="#8A8A85"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+      />
+
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleSignUp}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Creating account…' : 'Sign up'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push('/login')}>
+        <Text style={styles.link}>Already have an account? Log in</Text>
+      </TouchableOpacity>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+    padding: 24,
+    justifyContent: 'center',
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2420',
+    marginBottom: 6,
+  },
+  subheading: {
+    fontSize: 13,
+    color: '#6B6B66',
+    marginBottom: 24,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#DDD6C7',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#1F2420',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#D85A30',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  link: {
+    fontSize: 12,
+    color: '#D85A30',
+    textAlign: 'center',
+    marginTop: 18,
+  },
+});
