@@ -1,0 +1,197 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  SafeAreaView,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+
+const CATEGORIES = ['Breakfast', 'Salads', 'Dinner', 'Snacks'];
+
+const RECIPES = [
+  { id: '1', name: 'Avocado toast', category: 'Breakfast', color: '#D85A30' },
+  { id: '2', name: 'Walnut salad', category: 'Salads', color: '#1D9E75' },
+  { id: '3', name: 'Pesto pasta', category: 'Dinner', color: '#BA7517' },
+  { id: '4', name: 'Fruit yogurt bowl', category: 'Breakfast', color: '#7F77DD' },
+  { id: '5', name: 'Quinoa feta salad', category: 'Salads', color: '#1D9E75' },
+  { id: '6', name: 'Trail mix', category: 'Snacks', color: '#BA7517' },
+];
+
+export default function HomeScreen() {
+  const router = useRouter();
+
+  const [username, setUsername] = useState('');
+  const [activeCategory, setActiveCategory] = useState('Breakfast');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    loadUserDetails();
+  }, []);
+
+  const loadUserDetails = async () => {
+    try {
+      const userDetailsJson = await AsyncStorage.getItem('userDetails');
+      if (userDetailsJson) {
+        const userDetails = JSON.parse(userDetailsJson);
+        setUsername(userDetails.username || '');
+      }
+    } catch (error) {
+      console.error('Error loading user details:', error);
+    }
+  };
+
+  const filteredRecipes = RECIPES.filter((recipe) => {
+    const matchesCategory = recipe.category === activeCategory;
+    const matchesSearch = recipe.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    return matchesCategory && (searchQuery === '' || matchesSearch);
+  });
+
+  const renderRecipeCard = ({ item }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: item.color }]}
+      onPress={() => router.push(`/recipe/${item.id}`)}
+    >
+      <Text style={styles.cardLabel}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.greeting}>Hi, {username || 'there'}</Text>
+      <Text style={styles.subtext}>What's cooking today?</Text>
+
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search recipes"
+        placeholderTextColor="#8A8A85"
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
+
+      <FlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={CATEGORIES}
+        keyExtractor={(item) => item}
+        style={styles.chipRow}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.chip,
+              activeCategory === item ? styles.chipActive : styles.chipInactive,
+            ]}
+            onPress={() => setActiveCategory(item)}
+          >
+            <Text
+              style={
+                activeCategory === item
+                  ? styles.chipTextActive
+                  : styles.chipTextInactive
+              }
+            >
+              {item}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+
+      <FlatList
+        data={filteredRecipes}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.grid}
+        renderItem={renderRecipeCard}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No recipes found in this category.</Text>
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+    paddingHorizontal: 18,
+    paddingTop: 12,
+  },
+  greeting: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2420',
+  },
+  subtext: {
+    fontSize: 12,
+    color: '#6B6B66',
+    marginBottom: 14,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#DDD6C7',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    fontSize: 13,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  chipRow: {
+    marginBottom: 14,
+    flexGrow: 0,
+  },
+  chip: {
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginRight: 8,
+  },
+  chipActive: {
+    backgroundColor: '#E6F1FB',
+  },
+  chipInactive: {
+    backgroundColor: '#F0EEE6',
+  },
+  chipTextActive: {
+    fontSize: 12,
+    color: '#185FA5',
+    fontWeight: '600',
+  },
+  chipTextInactive: {
+    fontSize: 12,
+    color: '#6B6B66',
+  },
+  grid: {
+    paddingBottom: 20,
+  },
+  row: {
+    gap: 10,
+    marginBottom: 10,
+  },
+  card: {
+    flex: 1,
+    borderRadius: 12,
+    height: 90,
+    justifyContent: 'flex-end',
+    padding: 10,
+  },
+  cardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#6B6B66',
+    textAlign: 'center',
+    marginTop: 30,
+  },
+});
