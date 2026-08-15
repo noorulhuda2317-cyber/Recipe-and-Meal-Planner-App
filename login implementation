@@ -1,0 +1,166 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+
+export default function LoginScreen() {
+  const router = useRouter();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Missing information', 'Please enter both email and password.');
+      return;
+    }
+
+    if (!isValidEmail(email.trim())) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const usersJson = await AsyncStorage.getItem('users');
+      const users = usersJson ? JSON.parse(usersJson) : [];
+
+      const matchedUser = users.find(
+        (user) =>
+          user.email.toLowerCase() === email.trim().toLowerCase() &&
+          user.password === password
+      );
+
+      if (!matchedUser) {
+        Alert.alert('Login failed', 'Incorrect email or password.');
+        setLoading(false);
+        return;
+      }
+
+      await AsyncStorage.setItem(
+        'userDetails',
+        JSON.stringify({
+          username: matchedUser.username,
+          email: matchedUser.email,
+        })
+      );
+
+      setLoading(false);
+      router.replace('/home');
+    } catch (error) {
+      setLoading(false);
+      console.error('Login error:', error);
+      Alert.alert('Something went wrong', 'Please try again.');
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Text style={styles.heading}>Welcome back</Text>
+      <Text style={styles.subheading}>
+        Log in to continue planning your meals.
+      </Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        placeholderTextColor="#8A8A85"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        placeholderTextColor="#8A8A85"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Logging in…' : 'Log in'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push('/signup')}>
+        <Text style={styles.link}>Don't have an account? Sign up</Text>
+      </TouchableOpacity>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+    padding: 24,
+    justifyContent: 'center',
+  },
+  heading: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2420',
+    marginBottom: 6,
+  },
+  subheading: {
+    fontSize: 13,
+    color: '#6B6B66',
+    marginBottom: 24,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#DDD6C7',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#1F2420',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: '#D85A30',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  link: {
+    fontSize: 12,
+    color: '#D85A30',
+    textAlign: 'center',
+    marginTop: 18,
+  },
+});
