@@ -1,0 +1,240 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  SafeAreaView,
+  ActivityIndicator,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+const RECIPE_DETAILS = {
+  '1': {
+    id: '1',
+    name: 'Avocado toast',
+    color: '#D85A30',
+    time: '10 min',
+    servings: 1,
+    ingredients: ['Sourdough bread, 2 slices', 'Avocado', 'Cherry tomatoes', 'Lemon'],
+    instructions:
+      'Toast the bread. Mash the avocado with lemon juice and salt. Spread on toast and top with halved cherry tomatoes.',
+  },
+  '2': {
+    id: '2',
+    name: 'Walnut salad',
+    color: '#1D9E75',
+    time: '12 min',
+    servings: 2,
+    ingredients: ['Mixed greens', 'Walnuts', 'Goat cheese', 'Balsamic dressing'],
+    instructions:
+      'Toss greens with walnuts and crumbled goat cheese. Finish with balsamic dressing.',
+  },
+  '3': {
+    id: '3',
+    name: 'Pesto pasta',
+    color: '#BA7517',
+    time: '18 min',
+    servings: 2,
+    ingredients: ['Penne pasta', 'Basil pesto', 'Parmesan', 'Pine nuts'],
+    instructions:
+      'Cook pasta until al dente. Toss with pesto off heat. Top with parmesan and pine nuts.',
+  },
+};
+
+export default function DetailScreen() {
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
+
+  const [recipe, setRecipe] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRecipe();
+    checkIfFavorite();
+  }, [id]);
+
+  const loadRecipe = () => {
+    const found = RECIPE_DETAILS[id];
+    setRecipe(found || null);
+    setLoading(false);
+  };
+
+  const checkIfFavorite = async () => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem('favorites');
+      const favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
+      setIsFavorite(favorites.includes(id));
+    } catch (error) {
+      console.error('Error checking favorites:', error);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    try {
+      const favoritesJson = await AsyncStorage.getItem('favorites');
+      let favorites = favoritesJson ? JSON.parse(favoritesJson) : [];
+
+      if (favorites.includes(id)) {
+        favorites = favorites.filter((favId) => favId !== id);
+      } else {
+        favorites.push(id);
+      }
+
+      await AsyncStorage.setItem('favorites', JSON.stringify(favorites));
+      setIsFavorite(!isFavorite);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
+  const addToMealPlan = async () => {
+    try {
+      const mealPlanJson = await AsyncStorage.getItem('mealPlan');
+      const mealPlan = mealPlanJson ? JSON.parse(mealPlanJson) : [];
+      mealPlan.push({ recipeId: id, addedAt: new Date().toISOString() });
+      await AsyncStorage.setItem('mealPlan', JSON.stringify(mealPlan));
+    } catch (error) {
+      console.error('Error adding to meal plan:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color="#D85A30" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.emptyText}>Recipe not found.</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+            <Text>{'←'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleFavorite} style={styles.iconBtn}>
+            <Text>{isFavorite ? '♥' : '♡'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.hero, { backgroundColor: recipe.color }]} />
+
+        <View style={styles.content}>
+          <Text style={styles.title}>{recipe.name}</Text>
+          <Text style={styles.meta}>
+            {recipe.time} · Serves {recipe.servings}
+          </Text>
+
+          <Text style={styles.sectionLabel}>Ingredients</Text>
+          {recipe.ingredients.map((ingredient, index) => (
+            <Text key={index} style={styles.ingredient}>
+              • {ingredient}
+            </Text>
+          ))}
+
+          <Text style={styles.sectionLabel}>Instructions</Text>
+          <Text style={styles.instructions}>{recipe.instructions}</Text>
+
+          <TouchableOpacity style={styles.button} onPress={addToMealPlan}>
+            <Text style={styles.buttonText}>Add to meal plan</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+  },
+  centered: {
+    flex: 1,
+    backgroundColor: '#FAF8F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#6B6B66',
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DDD6C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hero: {
+    height: 160,
+    marginHorizontal: 18,
+    borderRadius: 16,
+  },
+  content: {
+    padding: 18,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2420',
+    marginBottom: 4,
+  },
+  meta: {
+    fontSize: 12,
+    color: '#6B6B66',
+    marginBottom: 18,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2420',
+    marginBottom: 8,
+    marginTop: 10,
+  },
+  ingredient: {
+    fontSize: 13,
+    color: '#444444',
+    marginBottom: 4,
+  },
+  instructions: {
+    fontSize: 13,
+    color: '#444444',
+    lineHeight: 20,
+  },
+  button: {
+    backgroundColor: '#D85A30',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 22,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
